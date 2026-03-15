@@ -5,8 +5,20 @@ import time
 from dataclasses import dataclass
 from enum import Enum
 
-import cairo
 import gi
+
+try:
+    gi.require_foreign("cairo")
+except ImportError as exc:
+    raise SystemExit(
+        "WayMakeup requires the PyGObject Cairo bridge.\n"
+        "On Ubuntu/Debian install it with:\n"
+        "  sudo apt install python3-gi-cairo\n"
+        "Then rerun:\n"
+        "  python3 app.py"
+    ) from exc
+
+import cairo
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Gdk", "4.0")
@@ -39,6 +51,7 @@ class Shape:
 class DrawingCanvas(Gtk.DrawingArea):
     def __init__(self):
         super().__init__()
+        self.add_css_class("drawing-canvas")
         self.set_draw_func(self.on_draw)
         self.set_hexpand(True)
         self.set_vexpand(True)
@@ -48,6 +61,7 @@ class DrawingCanvas(Gtk.DrawingArea):
         self.preview_shape: Shape | None = None
         self.current_tool = Tool.ARROW
         self.current_color = (1.0, 0.2, 0.2, 0.95)
+        self.background_tint = (0.0, 0.0, 0.0, 0.05)
         self.drag_start: tuple[float, float] | None = None
         self.cursor_x = 0.0
         self.cursor_y = 0.0
@@ -192,6 +206,8 @@ class DrawingCanvas(Gtk.DrawingArea):
         cr.set_operator(cairo.OPERATOR_CLEAR)
         cr.paint()
         cr.set_operator(cairo.OPERATOR_OVER)
+        cr.set_source_rgba(*self.background_tint)
+        cr.paint()
 
         for shape in self.shapes:
             self.draw_shape(cr, shape)
@@ -445,7 +461,9 @@ class WayMarkWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application):
         super().__init__(application=app, title="WayMakeup")
         self.set_default_size(1400, 900)
-        self.fullscreen()
+        # Fullscreen can disable alpha compositing on some desktops.
+        self.maximize()
+        self.set_opacity(0.96)
         self.set_decorated(False)
         self.toolbar_corner = 2
         self.last_toolbar_move_at = 0.0
@@ -453,6 +471,7 @@ class WayMarkWindow(Gtk.ApplicationWindow):
         self.add_css_class("overlay-window")
 
         overlay = Gtk.Overlay()
+        overlay.add_css_class("overlay-root")
         self.set_child(overlay)
 
         self.canvas = DrawingCanvas()
@@ -580,11 +599,23 @@ class WayMarkApplication(Gtk.Application):
         super().__init__(application_id="com.wymakeup.WayMakeup", flags=Gio.ApplicationFlags.FLAGS_NONE)
 
     def do_activate(self):
+        display = Gdk.Display.get_default()
+        if display is None:
+            raise SystemExit("WayMakeup requires a graphical GTK display.")
+
         css = Gtk.CssProvider()
         css.load_from_data(
             b"""
             window.overlay-window {
-                background-color: transparent;
+                background: transparent;
+                background-image: none;
+                box-shadow: none;
+            }
+
+            window.overlay-window > overlay.overlay-root,
+            window.overlay-window drawingarea.drawing-canvas {
+                background: transparent;
+                background-image: none;
             }
 
             window.editor-window {
@@ -632,7 +663,7 @@ class WayMarkApplication(Gtk.Application):
             """
         )
         Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
+            display,
             css,
             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
         )

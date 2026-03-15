@@ -1,0 +1,73 @@
+name: Release App
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to package and publish
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || github.ref }}
+
+      - name: Resolve release version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build release archives
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -eux
+          mkdir -p dist/package
+          cp app.py dist/package/
+          cp README.md dist/package/
+          cp LICENSE dist/package/
+          cp waymarkup.desktop dist/package/
+          (
+            cd dist
+            mv package "wymakeup-${TAG}"
+            zip -r "wymakeup-${TAG}.zip" "wymakeup-${TAG}"
+            tar -czf "wymakeup-${TAG}.tar.gz" "wymakeup-${TAG}"
+            sha256sum "wymakeup-${TAG}.zip" "wymakeup-${TAG}.tar.gz" > "SHA256SUMS.txt"
+          )
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -eux
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "dist/wymakeup-${TAG}.zip" \
+              "dist/wymakeup-${TAG}.tar.gz" \
+              "dist/SHA256SUMS.txt" \
+              --clobber
+          else
+            gh release create "$TAG" \
+              "dist/wymakeup-${TAG}.zip" \
+              "dist/wymakeup-${TAG}.tar.gz" \
+              "dist/SHA256SUMS.txt" \
+              --title "WayMakeup ${TAG}" \
+              --generate-notes
+          fi

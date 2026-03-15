@@ -13,6 +13,14 @@ WayMakeup is a regular Ubuntu desktop app that opens a transparent drawing windo
 
 ## Run
 
+Install the GTK/Cairo Python bindings first:
+
+```bash
+sudo apt install python3-gi python3-cairo python3-gi-cairo gir1.2-gtk-4.0 gir1.2-pango-1.0
+```
+
+Then launch the app:
+
 ```bash
 python3 app.py
 ```
@@ -36,6 +44,24 @@ docker compose up --build
 ```
 
 Then open `http://localhost:8080`.
+
+## Publish a Release
+
+GitHub Actions can package the desktop app and upload it to GitHub Releases when you push a version tag.
+
+```bash
+git add .
+git commit -m "Prepare release"
+git tag v1.0.1
+git push origin main
+git push origin v1.0.1
+```
+
+That workflow uploads these release assets:
+
+- `wymakeup-vX.Y.Z.zip`
+- `wymakeup-vX.Y.Z.tar.gz`
+- `SHA256SUMS.txt`
 
 ## Install launcher
 
