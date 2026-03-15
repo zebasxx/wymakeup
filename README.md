@@ -1,6 +1,6 @@
-# WayMarkup
+# WayMakeup
 
-WyMakeup is a regular Ubuntu desktop app that opens a transparent drawing window. You can use it to sketch arrows, rectangles, circles, and text on top of your desktop view, then capture the result with the built-in screenshot tool.
+WayMakeup is a regular Ubuntu desktop app that opens a transparent drawing window. You can use it to sketch arrows, rectangles, circles, and text on top of your desktop view, then capture the result with the built-in screenshot tool.
 
 ## Features
 
@@ -69,11 +69,11 @@ Notes:
 
 ## Install launcher
 
-Copy `waymarkup.desktop` into `~/.local/share/applications/` if you want it to show up in the Ubuntu app launcher.
+Copy `WayMakeup.desktop` into `~/.local/share/applications/` if you want it to show up in the Ubuntu app launcher.
 
 ```bash
 mkdir -p ~/.local/share/applications
-cp /home/seb/Code/GitHub/wymakeup/waymarkup.desktop ~/.local/share/applications/
+cp /home/seb/Code/GitHub/wymakeup/WayMakeup.desktop ~/.local/share/applications/
 ```
 
 ## Shortcuts
@@ -85,5 +85,5 @@ cp /home/seb/Code/GitHub/wymakeup/waymarkup.desktop ~/.local/share/applications/
 ## Notes
 
 - This is a normal Wayland app window, not a compositor overlay.
-- You can see what is behind the window, but while the window is focused your input goes to WayMarkup.
+- You can see what is behind the window, but while the window is focused your input goes to WayMakeup.
 - If your theme or compositor renders transparency differently, you may want to keep the app slightly smaller than fullscreen or adjust the CSS in `app.py`.

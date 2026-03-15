@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=WayMarkup
+Name=WayMakeup
 Comment=Transparent fullscreen drawing window for Ubuntu Wayland
 Exec=python3 /home/seb/Code/GitHub/wymakeup/app.py
 Terminal=false

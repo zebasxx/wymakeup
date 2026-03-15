@@ -405,7 +405,7 @@ class Toolbar(Gtk.Box):
 
 class ToolbarRestoreButton(Gtk.Button):
     def __init__(self, window: Gtk.ApplicationWindow):
-        super().__init__(label="WyMakeup")
+        super().__init__(label="WayMakeup")
         self.window = window
         self.add_css_class("toolbar-restore")
         self.connect("clicked", self.on_clicked)
@@ -443,7 +443,7 @@ class RestoreHint(Gtk.Label):
 
 class WayMarkWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application):
-        super().__init__(application=app, title="WayMarkup")
+        super().__init__(application=app, title="WayMakeup")
         self.set_default_size(1400, 900)
         self.fullscreen()
         self.set_decorated(False)
@@ -577,7 +577,7 @@ class WayMarkWindow(Gtk.ApplicationWindow):
 
 class WayMarkApplication(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="com.wymakeup.WayMarkup", flags=Gio.ApplicationFlags.FLAGS_NONE)
+        super().__init__(application_id="com.wymakeup.WayMakeup", flags=Gio.ApplicationFlags.FLAGS_NONE)
 
     def do_activate(self):
         css = Gtk.CssProvider()
