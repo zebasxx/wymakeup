@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import time
 from dataclasses import dataclass
 from enum import Enum
 
@@ -51,6 +52,7 @@ class DrawingCanvas(Gtk.DrawingArea):
         self.cursor_x = 0.0
         self.cursor_y = 0.0
         self.pending_text: Shape | None = None
+        self.toolbar_avoidance_callback = None
 
         click = Gtk.GestureClick(button=1)
         click.connect("pressed", self.on_pressed)
@@ -66,6 +68,9 @@ class DrawingCanvas(Gtk.DrawingArea):
 
     def set_color(self, rgba: Gdk.RGBA):
         self.current_color = (rgba.red, rgba.green, rgba.blue, rgba.alpha)
+
+    def set_toolbar_avoidance_callback(self, callback):
+        self.toolbar_avoidance_callback = callback
 
     def undo(self):
         if self.shapes:
@@ -113,6 +118,8 @@ class DrawingCanvas(Gtk.DrawingArea):
         self.cursor_y = y
 
         if self.current_tool == Tool.TEXT and self.pending_text:
+            if self.toolbar_avoidance_callback:
+                self.toolbar_avoidance_callback(x, y)
             self.preview_shape = Shape(
                 tool=Tool.TEXT,
                 start_x=x,
@@ -128,6 +135,9 @@ class DrawingCanvas(Gtk.DrawingArea):
 
         if not self.drag_start or not self.preview_shape:
             return
+
+        if self.toolbar_avoidance_callback:
+            self.toolbar_avoidance_callback(x, y)
 
         self.preview_shape.end_x = x
         self.preview_shape.end_y = y
@@ -359,6 +369,10 @@ class Toolbar(Gtk.Box):
         move_bar.connect("clicked", self.on_move_bar_clicked)
         self.append(move_bar)
 
+        collapse = Gtk.Button(label="Collapse")
+        collapse.connect("clicked", self.on_collapse_clicked)
+        self.append(collapse)
+
         quit_btn = Gtk.Button(label="Quit")
         quit_btn.connect("clicked", lambda *_: self.window.close())
         self.append(quit_btn)
@@ -378,6 +392,9 @@ class Toolbar(Gtk.Box):
     def on_move_bar_clicked(self, _button):
         self.window.move_toolbar_clockwise()
 
+    def on_collapse_clicked(self, _button):
+        self.window.set_toolbar_collapsed(True)
+
     def update_active_tool(self, active_tool: Tool):
         for tool, button in self.tool_buttons.items():
             if tool == active_tool:
@@ -386,24 +403,75 @@ class Toolbar(Gtk.Box):
                 button.remove_css_class("tool-active")
 
 
+class ToolbarRestoreButton(Gtk.Button):
+    def __init__(self, window: Gtk.ApplicationWindow):
+        super().__init__(label="WyMakeup")
+        self.window = window
+        self.add_css_class("toolbar-restore")
+        self.connect("clicked", self.on_clicked)
+
+        right_click = Gtk.GestureClick(button=3)
+        right_click.connect("pressed", self.on_right_click)
+        self.add_controller(right_click)
+
+        hover = Gtk.EventControllerMotion()
+        hover.connect("enter", self.on_hover_enter)
+        hover.connect("leave", self.on_hover_leave)
+        self.add_controller(hover)
+
+    def on_clicked(self, _button):
+        self.window.show_restore_hint(False)
+        self.window.set_toolbar_collapsed(False)
+
+    def on_right_click(self, _gesture, _n_press, _x, _y):
+        self.window.show_restore_hint(False)
+        self.window.move_toolbar_clockwise()
+
+    def on_hover_enter(self, _controller, _x, _y):
+        self.window.show_restore_hint(True)
+
+    def on_hover_leave(self, _controller):
+        self.window.show_restore_hint(False)
+
+
+class RestoreHint(Gtk.Label):
+    def __init__(self):
+        super().__init__(label="Left click: restore  |  Right click: move")
+        self.add_css_class("restore-hint")
+        self.set_visible(False)
+
+
 class WayMarkWindow(Gtk.ApplicationWindow):
     def __init__(self, app: Gtk.Application):
         super().__init__(application=app, title="WayMarkup")
         self.set_default_size(1400, 900)
         self.fullscreen()
         self.set_decorated(False)
-        self.toolbar_corner = 0
+        self.toolbar_corner = 2
+        self.last_toolbar_move_at = 0.0
+        self.toolbar_collapsed = False
         self.add_css_class("overlay-window")
 
         overlay = Gtk.Overlay()
         self.set_child(overlay)
 
         self.canvas = DrawingCanvas()
+        self.canvas.set_toolbar_avoidance_callback(self.maybe_move_toolbar_away)
         overlay.set_child(self.canvas)
 
         toolbar = Toolbar(self.canvas, self)
         self.toolbar = toolbar
         overlay.add_overlay(toolbar)
+
+        restore_button = ToolbarRestoreButton(self)
+        self.restore_button = restore_button
+        overlay.add_overlay(restore_button)
+        self.restore_button.set_visible(False)
+
+        restore_hint = RestoreHint()
+        self.restore_hint = restore_hint
+        overlay.add_overlay(restore_hint)
+
         self.position_toolbar()
 
         shortcut_controller = Gtk.ShortcutController()
@@ -428,6 +496,15 @@ class WayMarkWindow(Gtk.ApplicationWindow):
 
     def move_toolbar_clockwise(self):
         self.toolbar_corner = (self.toolbar_corner + 1) % 4
+        self.last_toolbar_move_at = time.monotonic()
+        self.position_toolbar()
+
+    def set_toolbar_collapsed(self, collapsed: bool):
+        self.toolbar_collapsed = collapsed
+        self.toolbar.set_visible(not collapsed)
+        self.restore_button.set_visible(collapsed)
+        if not collapsed:
+            self.show_restore_hint(False)
         self.position_toolbar()
 
     def position_toolbar(self):
@@ -445,6 +522,57 @@ class WayMarkWindow(Gtk.ApplicationWindow):
         self.toolbar.set_margin_end(margin if halign == Gtk.Align.END else 0)
         self.toolbar.set_margin_top(margin if valign == Gtk.Align.START else 0)
         self.toolbar.set_margin_bottom(margin if valign == Gtk.Align.END else 0)
+
+        self.restore_button.set_halign(halign)
+        self.restore_button.set_valign(valign)
+        self.restore_button.set_margin_start(margin if halign == Gtk.Align.START else 0)
+        self.restore_button.set_margin_end(margin if halign == Gtk.Align.END else 0)
+        self.restore_button.set_margin_top(margin if valign == Gtk.Align.START else 0)
+        self.restore_button.set_margin_bottom(margin if valign == Gtk.Align.END else 0)
+
+        hint_margin_x = 110
+        hint_margin_y = 78
+        self.restore_hint.set_halign(halign)
+        self.restore_hint.set_valign(valign)
+        self.restore_hint.set_margin_start(hint_margin_x if halign == Gtk.Align.START else 0)
+        self.restore_hint.set_margin_end(hint_margin_x if halign == Gtk.Align.END else 0)
+        self.restore_hint.set_margin_top(hint_margin_y if valign == Gtk.Align.START else 0)
+        self.restore_hint.set_margin_bottom(hint_margin_y if valign == Gtk.Align.END else 0)
+
+    def show_restore_hint(self, visible: bool):
+        self.restore_hint.set_visible(visible and self.toolbar_collapsed)
+
+    def maybe_move_toolbar_away(self, cursor_x: float, cursor_y: float):
+        if time.monotonic() - self.last_toolbar_move_at < 0.55:
+            return
+
+        width = self.canvas.get_width()
+        height = self.canvas.get_height()
+        tracked_widget = self.restore_button if self.toolbar_collapsed else self.toolbar
+        toolbar_width = max(tracked_widget.get_width(), 1)
+        toolbar_height = max(tracked_widget.get_height(), 1)
+
+        if width <= 0 or height <= 0 or toolbar_width <= 0 or toolbar_height <= 0:
+            return
+
+        margin = 18
+        if self.toolbar_corner in (0, 3):
+            left = margin
+            right = margin + toolbar_width
+        else:
+            left = width - margin - toolbar_width
+            right = width - margin
+
+        if self.toolbar_corner in (0, 1):
+            top = margin
+            bottom = margin + toolbar_height
+        else:
+            top = height - margin - toolbar_height
+            bottom = height - margin
+
+        padding = 80
+        if left - padding <= cursor_x <= right + padding and top - padding <= cursor_y <= bottom + padding:
+            self.move_toolbar_clockwise()
 
 
 class WayMarkApplication(Gtk.Application):
@@ -468,6 +596,23 @@ class WayMarkApplication(Gtk.Application):
                 background: rgba(24, 24, 24, 0.78);
                 border-radius: 16px;
                 padding: 12px;
+            }
+
+            .toolbar-restore {
+                min-height: 46px;
+                min-width: 76px;
+                background: rgba(24, 24, 24, 0.82);
+                color: #f7f7f7;
+                border-radius: 999px;
+                border: 1px solid rgba(255, 255, 255, 0.18);
+            }
+
+            .restore-hint {
+                background: rgba(20, 20, 20, 0.88);
+                color: #f8f8f8;
+                padding: 8px 12px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.14);
             }
 
             .toolbar-panel button,
