@@ -38,17 +38,21 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -eux
+          VERSION="${TAG#v}"
           mkdir -p dist/package
           cp app.py dist/package/
           cp README.md dist/package/
           cp LICENSE dist/package/
           cp waymarkup.desktop dist/package/
+          cp -R assets dist/package/
+          cp -R scripts dist/package/
+          ./scripts/build-deb.sh "$VERSION"
           (
             cd dist
             mv package "wymakeup-${TAG}"
             zip -r "wymakeup-${TAG}.zip" "wymakeup-${TAG}"
             tar -czf "wymakeup-${TAG}.tar.gz" "wymakeup-${TAG}"
-            sha256sum "wymakeup-${TAG}.zip" "wymakeup-${TAG}.tar.gz" > "SHA256SUMS.txt"
+            sha256sum "wymakeup-${TAG}.zip" "wymakeup-${TAG}.tar.gz" "wymakeup_${VERSION}_all.deb" > "SHA256SUMS.txt"
           )
 
       - name: Create or update GitHub Release
@@ -61,12 +65,14 @@ jobs:
             gh release upload "$TAG" \
               "dist/wymakeup-${TAG}.zip" \
               "dist/wymakeup-${TAG}.tar.gz" \
+              "dist/wymakeup_${TAG#v}_all.deb" \
               "dist/SHA256SUMS.txt" \
               --clobber
           else
             gh release create "$TAG" \
               "dist/wymakeup-${TAG}.zip" \
               "dist/wymakeup-${TAG}.tar.gz" \
+              "dist/wymakeup_${TAG#v}_all.deb" \
               "dist/SHA256SUMS.txt" \
               --title "WayMakeup ${TAG}" \
               --generate-notes

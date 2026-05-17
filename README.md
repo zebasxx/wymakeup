@@ -25,6 +25,34 @@ Then launch the app:
 python3 app.py
 ```
 
+## Build a Debian package
+
+Build a local `.deb` package:
+
+```bash
+./scripts/build-deb.sh 1.0.0
+```
+
+Install it with `apt`:
+
+```bash
+sudo apt install ./dist/wymakeup_1.0.0_all.deb
+```
+
+If you rebuild the package with the same version, reinstall it explicitly:
+
+```bash
+sudo apt install --reinstall ./dist/wymakeup_1.0.0_all.deb
+```
+
+After installation, launch WayMakeup from the app launcher or run:
+
+```bash
+wymakeup
+```
+
+The package installs the app icon from `assets/icons/wymakeup.svg`.
+
 ## Website
 
 A static showcase page is included in `site/`. You can host it with Nginx on Azure or any static web server.
@@ -61,22 +89,23 @@ That workflow uploads these release assets:
 
 - `wymakeup-vX.Y.Z.zip`
 - `wymakeup-vX.Y.Z.tar.gz`
+- `wymakeup_X.Y.Z_all.deb`
 - `SHA256SUMS.txt`
 
-## Install launcher
+## Install launcher from source
 
-Copy `WayMakeup.desktop` into `~/.local/share/applications/` if you want it to show up in the Ubuntu app launcher.
+Copy `waymarkup.desktop` into `~/.local/share/applications/` if you want it to show up in the Ubuntu app launcher without installing the `.deb` package.
 
 ```bash
 mkdir -p ~/.local/share/applications
-cp /home/seb/Code/GitHub/wymakeup/WayMakeup.desktop ~/.local/share/applications/
+sed "s#Exec=wymakeup#Exec=python3 $(pwd)/app.py#" waymarkup.desktop > ~/.local/share/applications/wymakeup.desktop
 ```
 
 ## Shortcuts
 
 - `Ctrl+Z`: undo
 - `Delete`: clear all
-- `Esc`: quit
+- `Esc`: cancel text placement or clear all
 
 ## Notes
 

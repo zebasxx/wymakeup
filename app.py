@@ -511,7 +511,7 @@ class WayMarkWindow(Gtk.ApplicationWindow):
         if self.canvas.pending_text:
             self.canvas.cancel_text_placement()
             return
-        self.close()
+        self.canvas.clear()
 
     def move_toolbar_clockwise(self):
         self.toolbar_corner = (self.toolbar_corner + 1) % 4
