@@ -1,0 +1,59 @@
+name: Build Debian Package
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Package version, without the leading v
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-deb:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve package version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version || '' }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0+ci.${GITHUB_RUN_NUMBER}"
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build .deb package
+        run: ./scripts/build-deb.sh "${{ steps.version.outputs.version }}"
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          sha256sum *.deb > SHA256SUMS.txt
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wymakeup-deb-${{ steps.version.outputs.version }}
+          path: |
+            dist/*.deb
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14

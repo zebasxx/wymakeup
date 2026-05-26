@@ -33,6 +33,8 @@ Build a local `.deb` package:
 ./scripts/build-deb.sh 1.0.0
 ```
 
+GitHub Actions also builds the `.deb` package for pushes, pull requests, tags, and manual workflow runs. Open the **Build Debian Package** workflow run in GitHub and download the `wymakeup-deb-*` artifact.
+
 Install it with `apt`:
 
 ```bash
